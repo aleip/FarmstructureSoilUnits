@@ -146,7 +146,7 @@ corine1km <- aggregate(corine100m_crop_recl, fact = 10, fun = sum)
 #plot(corine1km)
 
 
-rcl_mat1 <- matrix(nrow = 2, ncol = 3, c(0, 90, 0, 90, 100, 1), byrow = TRUE)
+rcl_mat1 <- matrix(nrow = 2, ncol = 3, c(0, 90, 1, 90, 100, 0), byrow = TRUE)
 corine1km_nogo_all <- reclassify(corine1km, rcl_mat1, right = FALSE, include.lowest = TRUE)
 
 
@@ -165,9 +165,6 @@ writeRaster(corine1km, filename = paste0(dir2save, "/nogo_shares_1km.tif"), form
 
 # raster with NoGo (threshhold = 90%)
 writeRaster(corine1km_nogo_all, filename = paste0(dir2save, "/nogo_1km.tif"), format = "GTiff", overwrite = TRUE)
-
-
-
 
 
 
@@ -197,6 +194,7 @@ corine1km_forest_only <- reclassify(corine1km_FOR, rcl_mat1, right = FALSE, incl
 #freq(corine1km_forest_only)
 
 
+
 ### Saving raster FOREST at 1km ####
 
 dir2save <- "E:\\FSUs/final"
@@ -206,7 +204,6 @@ writeRaster(corine1km_FOR, filename = paste0(dir2save, "/forest_shares_1km.tif")
 
 # raster with NoGo (threshhold = 90%)
 writeRaster(corine1km_forest_only, filename = paste0(dir2save, "/forest_only_1km.tif"), format = "GTiff", overwrite = TRUE)
-
 
 
 
