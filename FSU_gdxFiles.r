@@ -237,12 +237,78 @@ export2gdx(x2gdx = FSU_delim_all_2gdx,
 )
 
 
+write.csv(FSU_delim_all, file = "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/USCIE_FSU_delin.csv", row.names = FALSE)
 
 
 
 
 
 
+# p_area.gdx ####
+
+fsuArea <- FSU_delim_all[, .SD, .SDcols = c("fsu_all", "FSU_area")]
+fsuArea <- fsuArea[!duplicated(fsuArea), ]
+
+spatialunits_area <- fsuArea
+setnames(spatialunits_area, c("fsu_all", "FSU_area"), c("spatialunit", "spatialunit_area")) 
+
+
+FSU_delim_all <- fread("\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/USCIE_FSU_delin.csv", header = TRUE)
+
+#
+FSU_delim_all
+caprinuts0area <- as.data.table(FSU_delim_all %>% group_by(CAPRINUTS0) %>% summarise(caprin0area = n()))
+caprinuts0area <- caprinuts0area[-1, ]
+
+FSU_delim_all <- merge(FSU_delim_all, caprinuts0area, by = "CAPRINUTS0", all.x = TRUE)
+
+setnames(caprinuts0area, c("CAPRINUTS0", "caprin0area"), c("spatialunit", "spatialunit_area")) 
+
+spatialunits_area <- rbind(spatialunits_area, caprinuts0area)
+
+
+#
+FSU_delim_all
+caprinuts2area <- as.data.table(FSU_delim_all %>% group_by(CAPRINUTS2) %>% summarise(caprin2area = n()))
+caprinuts2area <- caprinuts2area[-1, ]
+
+FSU_delim_all <- merge(FSU_delim_all, caprinuts2area, by = "CAPRINUTS2", all.x = TRUE)
+
+setnames(caprinuts2area, c("CAPRINUTS2", "caprin2area"), c("spatialunit", "spatialunit_area")) 
+
+spatialunits_area <- rbind(spatialunits_area, caprinuts2area)
+
+
+#
+FSU_delim_all
+nuts3area <- as.data.table(FSU_delim_all %>% group_by(NUTS3_2016) %>% summarise(nuts3_2016area = n()))
+
+FSU_delim_all <- merge(FSU_delim_all, nuts3area, by = "NUTS3_2016", all.x = TRUE)
+
+setnames(nuts3area, c("NUTS3_2016", "nuts3_2016area"), c("spatialunit", "spatialunit_area")) 
+
+spatialunits_area <- rbind(spatialunits_area, nuts3area)
+
+
+#
+FSU_delim_all_2gdx <- spatialunits_area
+names(FSU_delim_all_2gdx) <- tolower(names(FSU_delim_all_2gdx))
+cols <- names(FSU_delim_all_2gdx)[1]
+FSU_delim_all_2gdx <- FSU_delim_all_2gdx[,(cols):= lapply(.SD, as.factor), .SDcols = cols]
+str(FSU_delim_all_2gdx)
+
+export2gdx(x2gdx = FSU_delim_all_2gdx, 
+           ndim = 1, 
+           parn = "p_area", 
+           #statistics=0,
+           pardesc = "Spatial units area (FSU, CAPRINUTS0, CAPRINUTS2, NUTS3(2016))",
+           #varname = c("fsu_10kmgrid_marsgrid25"),
+           #myText <- 1 text explanation per each variable
+           #myText = c("FSU")
+)
+
+
+write.csv(FSU_delim_all, file = "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/USCIE_FSU_delin.csv", row.names = FALSE)
 
 
 
