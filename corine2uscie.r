@@ -36,15 +36,29 @@ corine100m_crop <- crop(corine100m, uscie1km)
 #plot(corine100m_crop)
 
 activate_this1 <- 0  # to make checkings
-if(activate_this1 == 1){
-  etnt <- extent(corine100m_crop)
-  etnt@xmin <- 4000000 
-  etnt@xmax <- 4500000
-  etnt@ymin <- 2500000
-  etnt@ymax <- 3000000
+
+plotsmallwindow <- function(x, wint="small"){
+  etnt <- extent(x)
+  if(wint=="small"){
+    etnt@xmin <- 4000000 
+    etnt@xmax <- 4500000
+    etnt@ymin <- 2500000
+    etnt@ymax <- 3000000
+  }else if(wint=="laghi"){
+    etnt@xmin <- 4150000 
+    etnt@xmax <- 4400000
+    etnt@ymin <- 2450000
+    etnt@ymax <- 2600000
+  }else{
+    etnt@xmin <- 4160000 
+    etnt@xmax <- 4280000
+    etnt@ymin <- 2500000
+    etnt@ymax <- 2580000
+  }
     
-  corine100m_crop <- crop(corine100m_crop, etnt)
-  plot(corine100m_crop)
+  x <- crop(x, etnt)
+  plot(x)
+  
 }
 
 
@@ -138,16 +152,21 @@ rcl_mat[, 2] <- 0
 rcl_mat[c(1:11, 30, 31, 34, 38, 39, 40:44), 2] <- 1
 #rcl_mat[nrow(rcl_mat), 2] <- NA
 
+# Flag nogo areas at 100 m resolution
 corine100m_crop_recl <- reclassify(corine100m_crop, rcl_mat)
+plotsmallwindow(corine100m_crop_recl)
 
+# Calculate NOGO shares at 1 km scale
 corine1km <- aggregate(corine100m_crop_recl, fact = 10, fun = sum)
+plotsmallwindow(corine1km)
 #corine1km
 #sum(freq(corine1km)[91:101 , 2])
 #plot(corine1km)
 
-
+# Define threshold for full NOGO spatial units (90% of area classified NOGO)
 rcl_mat1 <- matrix(nrow = 2, ncol = 3, c(0, 90, 0, 90, 100, 1), byrow = TRUE)
 corine1km_nogo_all <- reclassify(corine1km, rcl_mat1, right = FALSE, include.lowest = TRUE)
+plotsmallwindow(corine1km_nogo_all)
 
 
 #plot(corine1km_nogo_all)
@@ -159,12 +178,14 @@ corine1km_nogo_all <- reclassify(corine1km, rcl_mat1, right = FALSE, include.low
 ### Saving raster NOGO at 1km ####
 
 dir2save <- "E:\\FSUs/final"
+dir2save <- "x:\\adrian/data/fsu"
 
 # raster with shares of NoGo
 writeRaster(corine1km, filename = paste0(dir2save, "/nogo_shares_1km.tif"), format = "GTiff", overwrite = TRUE)
 
 # raster with NoGo (threshhold = 90%)
-writeRaster(corine1km_nogo_all, filename = paste0(dir2save, "/nogo_1km.tif"), format = "GTiff", overwrite = TRUE)
+writeRaster(corine1km_nogo_all, filename = paste0(dir2save, "/nogo_1km.tif"), 
+            format = "GTiff", overwrite = TRUE)
 
 
 

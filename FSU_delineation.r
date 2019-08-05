@@ -1,4 +1,4 @@
-
+require(raster)
 
 ### Reading in data: USCIE,  ####
 
@@ -27,7 +27,8 @@ uscie_for <- uscie_for[!is.na(uscie_for$forest), ]
 
 
 # NoGo
-nogo <- raster(paste0("E:\\FSUs/final", "/nogo_1km.tif"))
+dir2save <- "x:\\adrian/data/fsu"
+nogo <- raster(paste0(dir2save, "/nogo_1km.tif"))
 
 nogo_uscie <- crop(uscie, nogo)
 nogo_uscie1 <- crop(nogo, nogo_uscie)
