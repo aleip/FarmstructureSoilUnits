@@ -59,30 +59,10 @@ if(doit == "y"){
 dir2save <- "x:\\adrian/data/fsu"
 dir2save <- "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU\\Forest_NoGo"
 forest <- raster(paste0(dir2save, "/forest_only_1km.tif"))
-# #al201908 - why twice crop? x and y axes of the data.frame?
-# forest_uscie <- crop(uscie, forest)
-# forest_uscie1 <- crop(forest, forest_uscie)
-# 
-# uscie_for <- data.frame(values(forest_uscie), values(forest_uscie1))
-# names(uscie_for) <- c("uscie", "forest")
-# uscie_for <- uscie_for[!is.na(uscie_for$uscie), ]
-# uscie_for <- uscie_for[!is.na(uscie_for$forest), ]
-# uscie_for <- as.data.table(uscie_for)
-
 uscie_for <- convertRaster2datatable(forest, uscie)
-
 
 # NoGo
 nogo <- raster(paste0(dir2save, "/nogo_1km.tif"))
-
-# nogo_uscie <- crop(uscie, nogo)
-# nogo_uscie1 <- crop(nogo, nogo_uscie)
-# 
-# uscie_nogo <- data.frame(values(nogo_uscie), values(nogo_uscie1))
-# names(uscie_nogo) <- c("uscie", "nogo")
-# uscie_nogo <- uscie_nogo[!is.na(uscie_nogo$uscie), ]
-# uscie_nogo <- uscie_nogo[!is.na(uscie_nogo$nogo), ]
-# uscie_nogo <- as.data.table(uscie_nogo)
 uscie_nogo <- convertRaster2datatable(nogo, uscie)
 
 # NoGO + Forest
@@ -139,7 +119,6 @@ FSU_delim_nogo$FSU <- paste0(FSU_delim_nogo$FSUADM2_ID_corrected,
 # Delete soil mapping unit from the nogo units so that they won't be split into several pieces...
 FSU_delim_nogo$HSU2_CD_SO <- ""
 
-
 # FSU_delim - combind first go units, then nogo units
 FSU_delim <- rbind(FSU_delim_go, FSU_delim_nogo)
 nrow(FSU_delim)
@@ -158,7 +137,6 @@ save(x, file="FSU_delim_line117.rdata")
 nuts_codes <- read.csv("\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU\\CAPRI_NUTS_RG_01M_2016_3035_LEVL_3_plus_BA_XK_final_wfoa\\CAPRI_NUTS_RG_01M_2016_3035_LEVL_3_plus_BA_XK_final_wfoa_FSUADM2_ID_corrected.csv", header=T)
 #kk <- unique(nuts_codes[, c(3,length(nuts_codes))])
 #write.csv(kk, "E:\\FSUs\\FSUADM2_CAPRINUTS2.csv", row.names = FALSE)
-
 
 #nuts_codes1 <- as.data.table(nuts_codes@data)
 nuts_codes1 <- as.data.table(nuts_codes)
