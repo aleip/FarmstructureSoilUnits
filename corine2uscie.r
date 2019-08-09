@@ -1,14 +1,9 @@
-
-
 library(data.table)
 library(raster)
 library(rgdal)
 
-
 ### Reading in data: USCIE, CORINE ####
-
 #CORINE raster
-
 corine_dir <- "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\Corine_Land_Cover\\clc2018_v20_incl_turkey\\7ac95361f9ac3cecdf37785bc183ff02dd765a16\\clc2018_clc2018_v2018_20_raster100m/"
 corine100m <- paste0(corine_dir, "/CLC2018_CLC2018_V2018_20.tif")
 corine100m <- raster(corine100m)
@@ -19,8 +14,6 @@ unique(corine100m@data@attributes)
 corine_cats <- read.csv(paste0(corine_dir, "/CLC2018_CLC2018_V2018_20.txt"), header = FALSE)
 corine_cats
 
-
-
 #USCIE 
 uscie_dir <- "\\\\ies\\d5\\agrienv\\Data\\uscie\\uscie_raster_FSU"
 uscie1km <- paste0(uscie_dir, "/refras_FSU_land.tif")
@@ -29,7 +22,6 @@ uscie1km
 
 
 # clipping corine
-
 corine100m_crop <- crop(corine100m, uscie1km)
 #corine100m_crop_kk <- corine100m_crop
 #corine100m_crop <- corine100m_crop_kk
@@ -37,112 +29,7 @@ corine100m_crop <- crop(corine100m, uscie1km)
 
 activate_this1 <- 0  # to make checkings
 
-plotsmallwindow <- function(x, wint="small"){
-  etnt <- extent(x)
-  if(wint=="small"){
-    etnt@xmin <- 4000000 
-    etnt@xmax <- 4500000
-    etnt@ymin <- 2500000
-    etnt@ymax <- 3000000
-  }else if(wint=="laghi"){
-    etnt@xmin <- 4150000 
-    etnt@xmax <- 4400000
-    etnt@ymin <- 2450000
-    etnt@ymax <- 2600000
-  }else{
-    etnt@xmin <- 4160000 
-    etnt@xmax <- 4280000
-    etnt@ymin <- 2500000
-    etnt@ymax <- 2580000
-  }
-    
-  x <- crop(x, etnt)
-  plot(x)
-  
-}
-
-
-
 ### Aggregating corine to 1km: NoGo and FOREST ####
-
-### nogo1: built-up areas
-#
-##View(corine_cats[, c(1,6)])
-#rcl_mat <- corine_cats[, 1:2]
-#
-#rcl_mat[, 2] <- 0
-#rcl_mat[1:11, 2] <- 1
-##rcl_mat[nrow(rcl_mat), 2] <- NA
-#
-#corine100m_crop_recl <- reclassify(corine100m_crop, rcl_mat)
-#
-#corine1km <- aggregate(corine100m_crop_recl, fact = 10, fun = sum)
-##corine1km
-##sum(freq(corine1km)[91:101 , 2])
-#
-#
-#rcl_mat1 <- matrix(nrow = 2, ncol = 3, c(0, 90, 0, 90, 100, 1), byrow = TRUE)
-#corine1km_nogo_urb <- reclassify(corine1km, rcl_mat1, right = FALSE, include.lowest = TRUE)
-#
-#
-##plot(corine1km_nogo_urb)
-##corine1km_nogo_urb
-##freq(corine1km_nogo_urb)
-#
-#
-### nogo2: water
-#
-##View(corine_cats[, c(1,6)])
-#rcl_mat <- corine_cats[, 1:2]
-#
-#rcl_mat[, 2] <- 0
-#rcl_mat[40:44, 2] <- 1
-##rcl_mat[nrow(rcl_mat), 2] <- NA
-#
-#corine100m_crop_recl <- reclassify(corine100m_crop, rcl_mat)
-#
-#corine1km <- aggregate(corine100m_crop_recl, fact = 10, fun = sum)
-##corine1km
-##sum(freq(corine1km)[91:101 , 2])
-##plot(corine1km)
-#
-#
-#rcl_mat1 <- matrix(nrow = 2, ncol = 3, c(0, 90, 0, 90, 100, 1), byrow = TRUE)
-#corine1km_nogo_wtr <- reclassify(corine1km, rcl_mat1, right = FALSE, include.lowest = TRUE)
-#
-#
-##plot(corine1km_nogo_wtr)
-##corine1km_nogo_wtr
-##freq(corine1km_nogo_wtr)
-#
-#
-#
-### nogo3: Bare Land
-#
-##View(corine_cats[, c(1,6)])
-#rcl_mat <- corine_cats[, 1:2]
-#
-#rcl_mat[, 2] <- 0
-#rcl_mat[c(30, 31, 34, 38, 39), 2] <- 1
-##rcl_mat[nrow(rcl_mat), 2] <- NA
-#
-#corine100m_crop_recl <- reclassify(corine100m_crop, rcl_mat)
-#
-#corine1km <- aggregate(corine100m_crop_recl, fact = 10, fun = sum)
-##corine1km
-##sum(freq(corine1km)[91:101 , 2])
-##plot(corine1km)
-#
-#
-#rcl_mat1 <- matrix(nrow = 2, ncol = 3, c(0, 90, 0, 90, 100, 1), byrow = TRUE)
-#corine1km_nogo_bre <- reclassify(corine1km, rcl_mat1, right = FALSE, include.lowest = TRUE)
-#
-#
-##plot(corine1km_nogo_bre)
-##corine1km_nogo_bre
-##freq(corine1km_nogo_bre)
-
-
 ## All nogo's toghether
 
 #View(corine_cats[, c(1,6)])
@@ -167,18 +54,15 @@ plotsmallwindow(corine1km)
 rcl_mat1 <- matrix(nrow = 2, ncol = 3, c(0, 90, 1, 90, 100, 0), byrow = TRUE)
 corine1km_nogo_all <- reclassify(corine1km, rcl_mat1, right = FALSE, include.lowest = TRUE)
 plotsmallwindow(corine1km_nogo_all)
-
-
 #plot(corine1km_nogo_all)
 #corine1km_nogo_all
 #freq(corine1km_nogo_all)
 
 
-
 ### Saving raster NOGO at 1km ####
-
 dir2save <- "E:\\FSUs/final"
 dir2save <- "x:\\adrian/data/fsu"
+dir2save <- "\\\\tsclient/x/adrian/data/fsu"
 
 # raster with shares of NoGo
 writeRaster(corine1km, filename = paste0(dir2save, "/nogo_shares_1km.tif"), format = "GTiff", overwrite = TRUE)
@@ -188,7 +72,9 @@ writeRaster(corine1km_nogo_all, filename = paste0(dir2save, "/nogo_1km.tif"),
             format = "GTiff", overwrite = TRUE)
 
 
-
+nogoshares <- raster(paste0(dir2save, "/nogo_shares_1km.tif"))
+nogodt <- convertRaster2datatable(nogoshares, uscie1km)
+save(nogodt, file=paste0(dir2save, "/corineCLASSNOGOs_share100m_uscie.rdata"))
 ### FOREST shares ####
 
 #View(corine_cats[, c(1,6)])
@@ -219,6 +105,8 @@ corine1km_forest_only <- reclassify(corine1km_FOR, rcl_mat1, right = FALSE, incl
 ### Saving raster FOREST at 1km ####
 
 dir2save <- "E:\\FSUs/final"
+dir2save <- "\\\\ies-ud01.jrc.it/5_agrienv/Data/FSU/"
+dir2save <- "\\\\tsclient/x/adrian/data/fsu"
 
 # raster with shares of NoGo
 writeRaster(corine1km_FOR, filename = paste0(dir2save, "/forest_shares_1km.tif"), format = "GTiff", overwrite = TRUE)
@@ -226,13 +114,12 @@ writeRaster(corine1km_FOR, filename = paste0(dir2save, "/forest_shares_1km.tif")
 # raster with NoGo (threshhold = 90%)
 writeRaster(corine1km_forest_only, filename = paste0(dir2save, "/forest_only_1km.tif"), format = "GTiff", overwrite = TRUE)
 
-
-
+forsh <- raster(paste0(dir2save, "/forest_shares_1km.tif"))
+fordt <- convertRaster2datatable(forsh, uscie1km)
+save(fordt, file=paste0(dir2save, "/corineCLASSall31forests_share100m_uscie.rdata"))
 
 
 ### Reading in data: DEM ####
-
-
 dem_dir <- "E:\\\\DEM_copernicus\\90b8668f52552b7f9202fc885807420e219e1c3b\\"
 dem25m <- paste0(dem_dir, "/eudem_dem_3035_europe.tif")
 dem25m <- raster(dem25m)
