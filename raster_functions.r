@@ -1,11 +1,40 @@
-plotsmallwindow <- function(x, wint="", plot2png=FALSE, param = ""){
+plotsmallwindow <- function(x, wint="", plot2png=FALSE, param = "", country=NULL, lvl = 2){
   etnt <- extent(x)
   
   xy <- data.table(matrix(c("ispra", "Area around Ispra", "4200000", "4220000", "2520000", "2540000"), ncol = 6))
-  xy <- rbind(xy, data.table(matrix(c("lago", "Area around Lago Maggiore", "4150000", "4300000", "2500000", "2620000"), ncol = 6)))
+  xy <- rbind(xy, data.table(matrix(c("lago", "Area around Lago Maggiore", "4150000", "4300000", "2500000", "2660000"), ncol = 6)))
   xy <- rbind(xy, data.table(matrix(c("northitaly", "Alps - North Italy", "4000000", "4500000", "2500000", "3000000"), ncol = 6)))
   xy <- rbind(xy, data.table(matrix(c("small", "North Italy", "4150000", "4400000", "2450000", "2600000"), ncol = 6)))
   xy <- rbind(xy, data.table(matrix(c("eu", "European Union countries", "2550000", "6000000", "1300000", "5300000"), ncol = 6)))
+  
+  if(!exists("nuts23")) {
+    n23_dir <- "\\\\ies\\d5\\agrienv\\Data\\GIS_basedata\\GISCO_2010_NUTS2_3"
+    nuts23 <<- readOGR(dsn = n23_dir, layer = "GISCO_NUTS2_3_2010_with_attr_laea")
+  }
+  if(wint == "country"){
+    
+    if(is.null(country)){
+      message("Please choose a country with argrument 'country'")
+      return()
+    }else{
+      if(! exists("nuts23")){
+        message("The country you indicated does not exist in the database. Please check spelling!")
+        return()
+      }
+      nuts23 <- nuts23[grepl(country, nuts23@data$NUTS2_ID10), ]
+    }
+    
+    xdiff <- extent(nuts23)@xmax - extent(nuts23)@xmin
+    ydiff <- extent(nuts23)@ymax - extent(nuts23)@ymin
+    exdiff <- xdiff - ydiff
+    #Add to the smaller edge so that it becomes square
+    nxmax <- extent(nuts23)@xmax - min(0, exdiff/2)
+    nxmin <- extent(nuts23)@xmin + min(0, exdiff/2)
+    nymax <- extent(nuts23)@ymax + max(0, exdiff/2)
+    nymin <- extent(nuts23)@ymin - max(0, exdiff/2)
+    xy <- rbind(xy, data.table(matrix(c("country", country, c(nxmin, nxmax, nymin, nymax)), ncol=6)))
+    
+  }
   
   names(xy) <- c("name", "desc", "xmin", "xmax", "ymin", "ymax")
   cols <- names(xy)[3:6]
@@ -16,17 +45,23 @@ plotsmallwindow <- function(x, wint="", plot2png=FALSE, param = ""){
     print(xy)
     return()
   }
-  
+  #View(xy)
   xname <- substitute(x)
   etnt@xmin <- xy[name==wint, xmin]
   etnt@xmax <- xy[name==wint, xmax]
   etnt@ymin <- xy[name==wint, ymin]
   etnt@ymax <- xy[name==wint, ymax]
+  #print(etnt)
   
-  x <- crop(x, etnt)
+  fx <- crop(x, etnt)
   if(plot2png) png(paste0(xname, wint, ".png"))
-  plot(x, main = paste0(xy[name==wint, desc], "\n", param))
-  #maps("world", add=TRUE)
+  plot(fx, main = paste0(xy[name==wint, desc], "\n", param))
+  if(wint == "country"){
+  }
+  #Omit nuts3 borders for large scale
+  if(extent(fx)@xmax-extent(fx)@xmin < 2000000){
+    plot(nuts23, add=TRUE)
+  }
   if(plot2png) dev.off()
   
 }
@@ -47,7 +82,7 @@ convertRaster2datatable <- function(rast1, rast2=uscie){
   dt <- data.table(values(r12), values(rfin))
   dt <- dt[! is.na(V1)]
   dt <- dt[! is.na(V2)]
-
+  
   names(dt) <- c(n2, n1)
   return(dt)
 }
@@ -143,5 +178,86 @@ doCorineSharecalc <- function(){
     calculateCorineShare(currast = cp, cl = cl, corine_cats = corine_cats, dir2save = dir2save)  
   }
   
+  
+}
+
+
+replot_tifs <- function(){
+  
+  
+  dir2save <- "x:/adrian/data/fsu"
+  dir2save <- "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/corine/"
+  corine_dir <- "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\Corine_Land_Cover\\clc2018_v20_incl_turkey\\7ac95361f9ac3cecdf37785bc183ff02dd765a16\\clc2018_clc2018_v2018_20_raster100m/"
+  corine_cats <- read.csv(paste0(corine_dir, "/CLC2018_CLC2018_V2018_20.txt"), header = FALSE)
+  rcl_mat <- corine_cats[, 1:2]
+  rcl_mat[, 2] <- 0
+  rcl_mat4nogo <- rcl_mat
+  rcl_mat4nogo[c(1:11, 30, 31, 34, 38, 39, 40:44), 2] <- 1
+  corineNonogo <- rcl_mat4nogo[rcl_mat4nogo$V2 == 0, "V1"]
+  corineNonogo <- c("31forests", corineNonogo)
+  
+  doplots <- c("ispra", "lago", "northitaly")
+  doplots <- c("eu")
+  doplots <- c("AT")
+  #for (i in 1:1){
+  for (doplot in doplots){
+    for (i in 1:(length(corineNonogo)-1)){
+      
+      fls <- list.files(dir2save, paste0(corineNonogo[i], ".*tif"), full.names=TRUE)
+      cldesc <- as.character(unlist(corine_cats[corine_cats$V1==corineNonogo[i], 6]))
+      cp <- raster(fls)
+      outfile <- paste0("/corineCLASS_", corineNonogo[i], "_", cldesc, "_1km_", doplot, ".png")
+      cat("\n", fls, outfile)
+      plotsmallwindow(cp, wint=doplot, plot2png=TRUE, param=cldesc)
+      file.copy(paste0("cp", doplot, ".png"), 
+                paste0(dir2save, outfile), overwrite=TRUE)
+      
+    }
+  }
+  
+}
+
+# Re-export tifs to data tables
+# This is required because the forest-dt was not OK, thus better redo all of them
+reconvert_tifs <- function(){
+  
+  
+  dir2save <- "x:/adrian/data/fsu"
+  dir2save <- "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/corine/"
+  corine_dir <- "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\Corine_Land_Cover\\clc2018_v20_incl_turkey\\7ac95361f9ac3cecdf37785bc183ff02dd765a16\\clc2018_clc2018_v2018_20_raster100m/"
+  corine_cats <- read.csv(paste0(corine_dir, "/CLC2018_CLC2018_V2018_20.txt"), header = FALSE)
+  rcl_mat <- corine_cats[, 1:2]
+  rcl_mat[, 2] <- 0
+  rcl_mat4nogo <- rcl_mat
+  rcl_mat4nogo[c(1:11, 30, 31, 34, 38, 39, 40:44), 2] <- 1
+  corineNonogo <- rcl_mat4nogo[rcl_mat4nogo$V2 == 0, "V1"]
+  corineNonogo <- c("NOGOs", "31forests", corineNonogo[-length(corineNonogo)])
+
+  
+  for (i in 1:(length(corineNonogo))){
+    
+    fls <- list.files(dir2save, paste0(corineNonogo[i], ".*tif"), full.names=TRUE)
+    cldesc <- as.character(unlist(corine_cats[corine_cats$V1==corineNonogo[i], 6]))
+    cp <- raster(fls)
+    dt <- convertRaster2datatable(rast1=cp, rast2=uscie1km)
+    names(dt) <- c("uscie", corineNonogo[i])
+    clcshare <- melt.data.table(dt, id.vars="uscie", 
+                          measure.vars=corineNonogo[i], variable.name="clc")
+    clcshare[uscie=="24754286"]
+    outfile <- paste0(dir2save, "/corineCLASS", corineNonogo[i], "_share100m_uscie.rdata")
+    save(clcshare, file=outfile)
+  }
+  
+}
+
+
+
+
+
+testadmindata <- FALSE
+if(testadmindata){
+  forest <- raster("x:\\adrian\\data\\fsu/corineCLASS313_shares100m_uscie.tif")
+  italt <- getData("alt", country="Italy")
+  itadm <- getData("GADM", country="Italy", level=2)
   
 }
