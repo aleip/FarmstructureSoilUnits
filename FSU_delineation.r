@@ -61,6 +61,14 @@ write.csv(FSU_delim_aggr, "\\\\ies\\d5\\agrienv\\Data\\FSU/FSU_delin.csv", row.n
 save(FSU_delim_aggr, file="\\\\ies\\d5\\agrienv\\Data\\FSU/FSU_delin.rdata")
 #FSU_delim_aggr <- fread("\\\\ies\\d5\\agrienv\\Data\\FSU/FSU_delin.csv", header = T)
 
+fsuID2FSU <- FSU_delim_aggr[, .(fsuID, FSU)]
+uscie2FSU <- FSU_delim_all[, USCIE_RC, FSU]
+uscie2fsu <- merge(uscie2FSU, fsuID2FSU, by="FSU")
+uscie2fsu <- uscie2fsu[, fsuNo := as.numeric(gsub("F", "", fsuID))]
+setkey(uscie2fsu, "fsuNo")
+uscie2fsu <- uscie2fsu[, .(fsuID, USCIE_RC)]
+save(uscie2fsu, file="\\\\ies\\d5\\agrienv\\Data\\FSU/uscie2fsu.rdata")
+
 
 ## Dissolve new FSU polygons and giving spatial information ####
 addspatinfo <- FALSE
