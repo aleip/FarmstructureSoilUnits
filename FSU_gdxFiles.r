@@ -493,6 +493,83 @@ p_corine <- function(){
     
 }
 
+p_pesetagrid <- function(){
+  
+  # From repository 'gisdata4caprihsu'
+  # -> file hsu4capri_data.r
+  # 
+  usciedatapath<-"\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\uscie\\"
+  usciedatapath<-paste0(usciedatapath,"hsu2_database_update_2016_02orig/")
+  dopesetagrid<-1
+  if(dopesetagrid==1){
+    #xresult<-processdata(
+    xfulln = paste0(usciedatapath,"uscie_peseta_grid.csv")
+    xresult<-processdata(xfulln = xfulln,xvbles = "PESETAidgrid",parn="PESETAgrid_fraction")}
+  
+  # Do here
+  peseta <- fread(xfulln)
+  load("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/uscie2fsu.rdata")
+  fsupeseta <- merge(uscie2fsu, peseta, by="USCIE_RC")
+  fsupeseta <- fsupeseta[, .N, by=c("fsuID", "PESETAidgrid")]
+  fsupeseta <- fsupeseta[, nPeseta := sum(N), by=c("PESETAidgrid")]
+  fsupeseta <- fsupeseta[, nFSU := sum(N), by=c("fsuID")]
+  fsupeseta <- fsupeseta[, fractionfsu := N/nFSU]
+  fsupeseta <- fsupeseta[, o := as.numeric(gsub("F", "", fsuID))]
+  setkey(fsupeseta, o)
+  p_pesetagrid_fractionfsu <- fsupeseta[, .(fsuID, PESETAidgrid, fractionfsu)]
+  p_pesetagrid_fractionfsu <- fsupeseta[, .(fsu_all = fsuID, PESETAidgrid, fraction = fractionfsu)]
+  cols <- names(p_pesetagrid_fractionfsu)[1:2]
+  p_pesetagrid_fractionfsu <- p_pesetagrid_fractionfsu[,(cols):= lapply(.SD, as.factor), .SDcols = cols]
+  str(p_pesetagrid_fractionfsu)
+  x2gdxloc <- p_pesetagrid_fractionfsu[complete.cases(p_pesetagrid_fractionfsu)] # to remove NAs
+  x2gdxloc <- as.data.frame(x2gdxloc)
+  attr(x2gdxloc,"symName") <- "pesetagrid_fractionfsu" #Parameter name
+  attr(x2gdxloc, "ts") <- "Fraction of FSU in PESETA grid cell. Sum over gridcells gives 1 per FSU"   #explanatory text for the symName
+  symDim <- 3
+  lst <- wgdx.reshape(x2gdxloc, 
+                      symDim, 
+                      tName = "fraction", 
+                      setsToo=TRUE, 
+                      order=c(1:(symDim-1),0), 
+                      setNames = c("fsu_all", "PESETAidgrid"))   #to reshape the DF before to write the gdx. tName is the index set name for the new index position created by reshaping
+  wgdx.lst(paste0("pesetagrid_fractionfsu", ".gdx"), lst)
+  
+  
+  ## Irrigated Areas
+  irridatapath<-"\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\irrigation\\siebert+2006"
+  irri <- fread(paste0(irridatapath, "/USCIE_IRRIGATED_AREA_2000.csv"))
+  fsuirri <- merge(uscie2fsu, irri, by="USCIE_RC")
+  irrishar <- fsuirri[, .(share=mean(IRRIG_AREA_2000_PERC)), by = "fsuID"]
+  #2check: irrishar[fsuID=="F171335"]
+  #irrishar <- irrishar[, different := IRRIG_AREA_2000_PERC!=share]
+  irrishar <- irrishar[, o := as.numeric(gsub("F", "", fsuID))]
+  setkey(irrishar, o)
+  irrishar <- irrishar[, .(fsu_all = fsuID, irri_share2000=share)]
+  cols <- names(irrishar)[1]
+  irrishar <- irrishar[,(cols):= lapply(.SD, as.factor), .SDcols = cols]
+  str(irrishar)
+  x2gdxloc <- irrishar[complete.cases(irrishar)] # to remove NAs
+  x2gdxloc <- as.data.frame(x2gdxloc)
+  attr(x2gdxloc,"symName") <- "irr_share2000" #Parameter name
+  attr(x2gdxloc, "ts") <- "Fraction of FSU in PESETA grid cell. Sum over gridcells gives 1 per FSU"   #explanatory text for the symName
+  symDim <- 2
+  lst <- wgdx.reshape(x2gdxloc, symDim, tName = "irr_share")
+  wgdx.lst(paste0("irr_share2000", ".gdx"), lst)
+  
+}
+emepdeposition <- function(){
+  # For gridcells, see 
+  # \\ies-ud01.jrc.it\D5_agrienv\Data\uscie\hsu2_database_update_2016_02orig\USCIE_EMEP_HSU2.r
+  # Generating (a) Fraction of FSU in emep grid (and vice versa)
+  #            (b) Merging deposition data to FSU
+  # \\ies-ud01.jrc.it\D5_agrienv\Data\uscie\hsu2_database_update_2016_02orig\USCIE_EMEP_FSU_LC.rdata
+  # \\ies-ud01.jrc.it\D5_agrienv\Data\uscie\hsu2_database_update_2016_02orig\USCIE_EMEP_LC_FSU_W-DDP.rdata
+
+  # Further processing
+  # \\ies-ud01.jrc.it\D5_agrienv\Data\uscie\gisdata4caprihsu_outputdata\p_deposition.r
+  
+}
+  
 
 meteogrid0.25 <- function(){
   
