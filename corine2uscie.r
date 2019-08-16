@@ -20,7 +20,6 @@ uscie1km <- paste0(uscie_dir, "/refras_FSU_land.tif")
 uscie1km <- raster(uscie1km)
 uscie1km
 
-
 # clipping corine
 corine100m_crop <- crop(corine100m, uscie1km)
 #corine100m_crop_kk <- corine100m_crop

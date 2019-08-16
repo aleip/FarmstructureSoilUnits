@@ -1,4 +1,5 @@
 plotsmallwindow <- function(x, wint="", plot2png=FALSE, param = "", country=NULL, lvl = 2){
+  
   etnt <- extent(x)
   
   xy <- data.table(matrix(c("ispra", "Area around Ispra", "4200000", "4220000", "2520000", "2540000"), ncol = 6))
@@ -21,17 +22,17 @@ plotsmallwindow <- function(x, wint="", plot2png=FALSE, param = "", country=NULL
         message("The country you indicated does not exist in the database. Please check spelling!")
         return()
       }
-      nuts23 <- nuts23[grepl(country, nuts23@data$NUTS2_ID10), ]
+      curnuts3 <- nuts3[grepl(country, nuts3@data$NUTS3_2010), ]
     }
     
-    xdiff <- extent(nuts23)@xmax - extent(nuts23)@xmin
-    ydiff <- extent(nuts23)@ymax - extent(nuts23)@ymin
+    xdiff <- extent(curnuts3)@xmax - extent(curnuts3)@xmin
+    ydiff <- extent(curnuts3)@ymax - extent(curnuts3)@ymin
     exdiff <- xdiff - ydiff
     #Add to the smaller edge so that it becomes square
-    nxmax <- extent(nuts23)@xmax - min(0, exdiff/2)
-    nxmin <- extent(nuts23)@xmin + min(0, exdiff/2)
-    nymax <- extent(nuts23)@ymax + max(0, exdiff/2)
-    nymin <- extent(nuts23)@ymin - max(0, exdiff/2)
+    nxmax <- extent(curnuts3)@xmax - min(0, exdiff/2)
+    nxmin <- extent(curnuts3)@xmin + min(0, exdiff/2)
+    nymax <- extent(curnuts3)@ymax + max(0, exdiff/2)
+    nymin <- extent(curnuts3)@ymin - max(0, exdiff/2)
     xy <- rbind(xy, data.table(matrix(c("country", country, c(nxmin, nxmax, nymin, nymax)), ncol=6)))
     
   }
@@ -47,6 +48,15 @@ plotsmallwindow <- function(x, wint="", plot2png=FALSE, param = "", country=NULL
   }
   #View(xy)
   xname <- substitute(x)
+  if(xname =="curr") xname <- ""
+  if(wint=="country") {
+    xname <- paste0(xname, country)
+  }else{
+    xname <- paste0(xname, wint)
+  }
+  if(names(x)!="uscie") xname <- names(x)
+  
+  
   etnt@xmin <- xy[name==wint, xmin]
   etnt@xmax <- xy[name==wint, xmax]
   etnt@ymin <- xy[name==wint, ymin]
@@ -54,13 +64,28 @@ plotsmallwindow <- function(x, wint="", plot2png=FALSE, param = "", country=NULL
   #print(etnt)
   
   fx <- crop(x, etnt)
-  if(plot2png) png(paste0(xname, wint, ".png"))
+  curnuts2 <- crop(nuts2, etnt)
+  curnuts0 <- crop(nuts0, etnt)
+  
+  save(list=objects(), file="P.rdata")
+  
+  
+  if(plot2png) png(paste0(xname, "_", gsub(" ", "", param), ".png"))
   plot(fx, main = paste0(xy[name==wint, desc], "\n", param))
   if(wint == "country"){
   }
-  #Omit nuts3 borders for large scale
+  
+  # Add background color
+  plot(curnuts0, add=TRUE, col="light grey")
+  plot(curnuts0[is.na(curnuts0@data$EU28_CNTR),], add=TRUE, col="grey")
+  plot(fx, add=TRUE, main = paste0(xy[name==wint, desc], "\n", param))
+  curlwd <- 0.25
+  
+  #Omit curnuts3 borders for large scale
   if(extent(fx)@xmax-extent(fx)@xmin < 2000000){
-    plot(nuts23, add=TRUE)
+    #plot(curnuts3, add=TRUE, lwd=curlwd, lty=2)
+    plot(curnuts2, add=TRUE, lwd=4*curlwd)
+    plot(curnuts0, add=TRUE, lwd=8*curlwd)
   }
   if(plot2png) dev.off()
   
