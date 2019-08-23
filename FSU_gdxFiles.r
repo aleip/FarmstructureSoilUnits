@@ -3,6 +3,9 @@ library(reshape2)
 library(gdxrrw)
 library(magrittr)
 #library(dplyr)
+#
+source("../FarmstructureSoilUnits/raster_functions.r")
+source("capriextract_functions_4mapping.r")
 
 if(Sys.info()[4] == "D01RI1701864"){ #checks machine name
   gamspath<-"C:\\apps\\GAMS\\win64\\24.9"
@@ -78,7 +81,7 @@ export2gdx <- function(x2gdx,
 # FSU dataset ####
 
 #FSU_delim_aggr <- fread("\\\\ies\\d5\\agrienv\\Data\\FSU/FSU_delin.csv", header = TRUE)
-load("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/FSU_delin.rdata")
+#load("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/FSU_delin.rdata")
 
 p_fsu_srnuts2.gdx <- function(){
   
@@ -221,51 +224,125 @@ m_hsugrid_fsugrid <- function(){
   
   iespath <- "//ies-ud01.jrc.it/D5_agrienv/Data/uscie/gisdata4caprihsu_outputdata/"
   fsupath <- "//ies-ud01.jrc.it/D5_agrienv/Data/FSU/"
-  
-  p <- paste0(cenv$capr, cenv$datdir, "capdishsu/fssdata/fss2010grid_")
-  p <- paste0(cenv$capr, cenv$datdir, "capdishsu/fssdata/")
-  fls <- list.files(p, pattern="fss2010grid_.*")
-  fssgridall <- Reduce(rbind, lapply(1:length(fls), function(x) 
-    as.data.table(rgdx.param(gdxName=paste0(p, fls[x]), symName="results_gridunits", names=c("grid", "fssact")))))
-  fssdata <- dcast.data.table(fssgrid, grid ~ fssact, value.var="value", sum)
-  
-  save(fssgridall, file=paste0(iespath,"/fss2010grid_gapfilled~201711.rdata"))
-  fssgrid <- fssgridall
-  fssgrid <- unique(fssgrid[, .(grid)])
-  fssgrid <- fssgrid[, grid:= gsub("NO01_2_", "NO012_", grid)]
-  # Get nuts, scale and lon/lat (in m) for each grid cell
-  fssgrid <- fssgrid[, c("nuts", "scale", "E") := .(tstrsplit(grid, "_")[[1]], 
-                                                    tstrsplit(tstrsplit(grid, "_")[[2]], "E")[[1]], 
-                                                    tstrsplit(tstrsplit(grid, "_")[[2]], "E")[[2]])]
-  fssgrid <- fssgrid[, c("E", "N") := .(tstrsplit(E, "N")[[1]], tstrsplit(E, "N")[[2]])]
-  # Keep only NUTS2 grid cells (NUTS3 have 5 characters)
-  fssgrid <- fssgrid[nchar(nuts) < 5]
-  # Keep only 10 km grids
-  fssgrid <- fssgrid[scale == "10km"]
-  save(fssgrid, file=paste0(iespath, "fss2010grid_N12_10km~201711.rdata"))
-
+  fs=paste0(iespath,"/fss2010grid_gapfilled~201711.rdata")
+  if(file.exists(fs)){
+    load(fs)
+  }else{
+    p <- paste0(cenv$capr, cenv$datdir, "capdishsu/fssdata/fss2010grid_")
+    p <- paste0(cenv$capr, cenv$datdir, "capdishsu/fssdata/")
+    fls <- list.files(p, pattern="fss2010grid_.*")
+    fssgridall <- Reduce(rbind, lapply(1:length(fls), function(x) 
+      as.data.table(rgdx.param(gdxName=paste0(p, fls[x]), symName="results_gridunits", names=c("grid", "fssact")))))
+    fssdata <- dcast.data.table(fssgridall, grid ~ fssact, value.var="value", sum)
+    
+    save(fssgridall, file=fs)
+    fs=paste0(iespath, "fss2010grid_N12_10km~201711.rdata")
+  }
+  fs=paste0(iespath, "fss2010grid_N12_10km~201711.rdata")
+  if(file.exists(fs)){
+    load(fs)
+  }else{
+    fssgrid <- fssgridall
+    fssgrid <- unique(fssgrid[, .(grid)])
+    fssgrid <- fssgrid[, grid:= gsub("NO01_2_", "NO012_", grid)]
+    # Get nuts, scale and lon/lat (in m) for each grid cell
+    fssgrid <- fssgrid[, c("nuts", "scale", "E") := .(tstrsplit(grid, "_")[[1]], 
+                                                      tstrsplit(tstrsplit(grid, "_")[[2]], "E")[[1]], 
+                                                      tstrsplit(tstrsplit(grid, "_")[[2]], "E")[[2]])]
+    fssgrid <- fssgrid[, c("E", "N") := .(tstrsplit(E, "N")[[1]], tstrsplit(E, "N")[[2]])]
+    # Keep only NUTS2 grid cells (NUTS3 have 5 characters)
+    fssgrid <- fssgrid[nchar(nuts) < 5]
+    # Keep only 10 km grids
+    fssgrid <- fssgrid[scale == "10km"]
+    fssgrid <- merge(fssgrid, fssgridall, by="grid")
+    save(fssgrid, file=fs)
+  }
   #
   #  B. Prepare FSU grid cells
   #
   load(file="//ies-ud01.jrc.it/D5_agrienv/Data/FSU/p_fsu_grid.rdata")
+  matchnuts <- fread("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/admin_units/CAPRI_NUTS_RG_01M_2016_3035_LEVL_3_plus_BA_XK_final_wfoa.csv")
+  matchnuts2 <- unique(matchnuts[, .(CAPRINUTS2, FSS10_N2ID)])
+  matchnuts2 <- matchnuts2[, nuts4:=substr(CAPRINUTS2, 1, 4)]
+  matchnuts2 <- matchnuts2[!FSS10_N2ID %in% unique(matchnuts2[duplicated(matchnuts2$FSS10_N2ID)]$FSS10_N2ID)]
+  # There are some duplicate FSSNUTS (e.g. DE1) - remove them so that a merge is possible
+  ufssgrid <- unique(fssgrid[, .(grid, nuts, scale, E, N)])
+  matchnuts3 <- merge(ufssgrid, matchnuts2, by.x="nuts", by.y="FSS10_N2ID")
+  matchnuts3 <- matchnuts3[, gridnew := gsub(nuts, nuts4, grid), by=c("nuts", "nuts4", "grid")]
+  fssgridmatch <- matchnuts3[, .(gridnew, CAPRINUTS2, nuts4, scale, E, N)]
+  
   fsugrid <- unique(p_fsu_grid[, .(grid10n2)])
   fsugrid <- fsugrid[, nutsfsu := tstrsplit(grid10n2, "_")[[1]]]
   
-  bothgrids <- merge(fssgrid, fsugrid, by.x="grid", by.y="grid10n2", all=TRUE)
-  bothgrids <- bothgrids[, missInHSU := is.na(nuts)]
-  bothgrids <- bothgrids[, missInFSU := is.na(nutsfsu)]
-  bothgrids <- bothgrids[, .(grid, nuts, nutsfsu, missInHSU, missInFSU)]
+  bothgrids <- merge(fssgridmatch, fsugrid, by.x="gridnew", by.y="grid10n2", all=TRUE)
   
-  missingcells <- bothgrids[, .N, by=c("missInHSU", "missInFSU")]
-  save(bothgrids, missingcells, file=paste0(fsupath, "grid_N12_10km_matchingHSU_FSU.rdata"))
-  fwrite(bothgrids, file=paste0(fsupath, "FSS10kmgrids_matching_gapfilldata_FSU.csv"))
-  fwrite(missingcells, file=paste0(fsupath, "FSS10kmgrids_matching_missingcells.csv"))
+  bothgrids <- bothgrids[, missInHSU := is.na(nuts4)]
+  bothgrids <- bothgrids[, missInFSU := is.na(nutsfsu)]
+  bothgrids <- bothgrids[, .(gridnew, nuts4, nutsfsu, missInHSU, missInFSU)]
+  
+  # Check missing in new
+  sfol <- paste0(fsupath, "/solve_mismatch_gapfilled_fss/")
+  missinfsu <- bothgrids[missInFSU==TRUE & !grepl("^_", gridnew)]
+  fwrite(bothgrids[missInFSU==TRUE], file=paste0(fsupath, "FSS10kmgrids_matching_gapfilldata_missInFSU.csv"))
+  correct1 <- fread(paste0(sfol, "gapfilled_NUTS2GRIDID_not_matching.csv"))
+  correct1 <- correct1[, .(old=FSS10_N2ID_10kmGRIDID_not_in_spatial_layer,new=FSS10_N2ID_10kmGRIDID_alternative)]
+  # After looking at correct2, make some manual adjustments
+  correct1 <- correct1[old=="ITC3_10kmE413N229", old:="IT13_10kmE413N229"]
+  correct1 <- correct1[old=="ITC4_10kmE423N242", old:="IT20_10kmE423N242"]
+  correct1 <- correct1[old=="UKF2_10kmE362N331", old:="UKF0_10kmE362N331"]
+  correct1 <- correct1[old=="UKJ1_10kmE355N327", old:="UKJ0_10kmE355N327"]
+  correct1 <- correct1[old=="UKJ4_10kmE369N313", old:="UKJ0_10kmE369N313"]
+  correct2 <- merge(correct1, missinfsu, by.x="old", by.y="gridnew", all=TRUE)
+  bothgrids <- merge(bothgrids, correct2[, .(old, new)], by.x="gridnew", by.y="old", all.x=TRUE)
+  
+  # Now check mistake in other direction (missing in HSU data)
+  bothgrids <- bothgrids[, missInHSU := is.na(nuts4)]
+  bothgrids <- bothgrids[, missInFSU := is.na(nutsfsu)]
+  bothgrids <- bothgrids[, .(gridnew, nuts4, nutsfsu, missInHSU, missInFSU)]
+  missinhsu <- bothgrids[missInHSU==TRUE & !grepl("^_", gridnew)]
+  missingcntr <- unique(missinhsu$nutsfsu)
+  missinhsu <- missinhsu[! grepl("AL", gridnew)]
+  missinhsu <- missinhsu[! grepl("BA", gridnew)]
+  missinhsu <- missinhsu[! grepl("Icel", gridnew)]
+  missinhsu <- missinhsu[! grepl("Liec", gridnew)]
+  missinhsu <- missinhsu[! grepl("HR", gridnew)]
+  missinhsu <- missinhsu[! grepl("MK", gridnew)]
+  missinhsu <- missinhsu[! grepl("TR", gridnew)]
+  
+  fwrite(bothgrids[missInFSU==TRUE], file=paste0(fsupath, "FSS10kmgrids_matching_gapfilldata_missInHSU.csv"))
+  correct1 <- fread(paste0(sfol, "FSS_NUTS2_10kmGRIDempty_match_with_closest_gapfilled_polygon.csv"))
+  concernednuts <- unique(correct1[, FSS10_N2ID_EMPTY])
+  correct1 <- correct1[, .(empty=FSS10_N2ID_10kmGRIDID_EMPTY, 
+                           fillby=NEAR_FSS10_N2ID_10kmGRIDID, 
+                           clcempty=CLC2018_agrigrass_ha_for_FSS10_N2ID_10kmGRIDID_EMPTY,
+                           clcfill=CLC2018_agrigrass_ha_for_NEAR_FSS10_N2ID_10kmGRIDID)]
+  
   #
   #  C. Join data and export
   #
   
-  fss10km <- merge(bothgrids[, .(grid)], fssgridall, by = "grid")
-  fss10km <- dcast.data.table(fss10km, grid ~ fssact, value.var="value", sum)
+  fss10km <- merge(bothgrids[, .(grid=gridnew)], fssgrid, by = "grid", all.y=TRUE)
+  
+  # For each empty cell 
+  # - if the empty cellsthey were large, then it is assumed that it is OK to be empty
+  # - if they have no or very little Corine agricultural area, it is assumed it is OK to be empty
+  # - otherwise the surrounding grids have been checked
+  #   - the closest four cells are found and the nearest identified
+  #   - the corine agriculure areas are calculated
+  # Here the new data are calculated distributing activities acc to CLC agricultural area
+  fsscorrect <- merge(fss10km, correct1, by.x="grid", by.y="fillby")
+  fsscorrect <- fsscorrect[, updateval := value * clcfill/(clcfill + clcempty)]
+  fsscorrect <- fsscorrect[, fillvalue := value * clcempty/(clcfill + clcempty)]
+  fssempty <- fsscorrect[, .(grid=empty, fssact, valuenew=fillvalue)]
+  fssupdate <- fsscorrect[, .(grid=grid, fssact, valuenew=updateval)]
+  fssupdate <- rbind(fssupdate, fssempty)
+  setkey(fssupdate, grid, fssact)
+  fssupdate
+  fss10kmfilled <- merge(fss10km, fssupdate, by=c("grid", "fssact"), all=TRUE)
+  fss10kmfilled <- fss10kmfilled[is.na(valuenew), valuenew:=value]
+  fss10kmfilled <- fss10kmfilled[!is.na(valuenew)]
+  
+  fss10km <- dcast.data.table(fss10kmfilled, grid ~ fssact, value.var="valuenew", sum)
   cols <- names(fss10km)[1]
   fss10km <- fss10km[,(cols):= lapply(.SD, as.factor), .SDcols = cols]
   cols <- names(fss10km)[2:length(fss10km)]
@@ -338,7 +415,7 @@ p_fsu_area.gdx <- function(){
     # Corrected in above formula in using the country-name instead
   }
   
- 
+  
   #
   FSU_delim_all_2gdx <- p_fsu_area
   names(FSU_delim_all_2gdx) <- tolower(names(FSU_delim_all_2gdx))
@@ -447,7 +524,7 @@ p_corine <- function(){
                       order=c(1:(symDim-1),0), 
                       setNames = c("fsu_all", "CLC"))   #to reshape the DF before to write the gdx. tName is the index set name for the new index position created by reshaping
   wgdx.lst(paste0("p_fsuCorineShares", ".gdx"), lst)
-
+  
   x2gdxloc <- p_fsuCorineArea[complete.cases(p_fsuCorineArea)] # to remove NAs
   x2gdxloc <- as.data.frame(x2gdxloc)
   attr(x2gdxloc,"symName") <- "p_fsuCorineArea" #Parameter name
@@ -461,7 +538,7 @@ p_corine <- function(){
                       setNames = c("fsu_all", "CLC"))   #to reshape the DF before to write the gdx. tName is the index set name for the new index position created by reshaping
   wgdx.lst(paste0("p_fsuCorineArea", ".gdx"), lst)
   
-
+  
   checkWhyNoforestinAustria <- function(){
     
     i <- 2
@@ -490,7 +567,7 @@ p_corine <- function(){
     x[uscie=="24754286"]
   }
   
-    
+  
 }
 
 p_pesetagrid <- function(){
@@ -564,12 +641,12 @@ emepdeposition <- function(){
   #            (b) Merging deposition data to FSU
   # \\ies-ud01.jrc.it\D5_agrienv\Data\uscie\hsu2_database_update_2016_02orig\USCIE_EMEP_FSU_LC.rdata
   # \\ies-ud01.jrc.it\D5_agrienv\Data\uscie\hsu2_database_update_2016_02orig\USCIE_EMEP_LC_FSU_W-DDP.rdata
-
+  
   # Further processing
   # \\ies-ud01.jrc.it\D5_agrienv\Data\uscie\gisdata4caprihsu_outputdata\p_deposition.r
   
 }
-  
+
 
 meteogrid0.25 <- function(){
   
