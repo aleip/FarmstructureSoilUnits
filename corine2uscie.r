@@ -37,6 +37,10 @@ rcl_mat <- corine_cats[, 1:2]
 rcl_mat[, 2] <- 0
 rcl_mat[c(1:11, 30, 31, 34, 38, 39, 40:44), 2] <- 1
 #rcl_mat[nrow(rcl_mat), 2] <- NA
+nogolist <- corine_cats[, c(1, 6)]
+nogolist <- nogolist[c(1:11, 30, 31, 34, 38, 39, 40:44),]
+nogolist$nogo <- paste0(nogolist$V1, ": ", nogolist$V6)
+nogolist <- paste(nogolist$nogo, collapse=" - ")
 
 # Flag nogo areas at 100 m resolution
 corine100m_crop_recl <- reclassify(corine100m_crop, rcl_mat)
