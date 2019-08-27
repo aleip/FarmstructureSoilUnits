@@ -31,7 +31,7 @@ if(dosplitUK){
   setnames(fsuUKM, "FSS10_N2ID", "CAPRINUTS2")
   # Add zeros to adhere to CAPRI style
   fsuUKM <- fsuUKM[, CAPRINUTS2 := paste0(CAPRINUTS2, "0000")]
-  splitUKM <- unique(FSU_delim_all1[CAPRINUTS2=="UKM00000", .(CAPRINUTS2, FSS10_N2ID)])
+  splitUKM <- unique(FSU_delim_all1[CAPRINUTS2=="UKM00000", .(CAPRINUTS0, CAPRINUTS2, FSS10_N2ID)])
   setnames(splitUKM, "FSS10_N2ID", "split")
   # Add zeros to adhere to CAPRI style
   splitUKM <- splitUKM[, split := paste0(split, "0000")]
@@ -47,7 +47,8 @@ if(dosplitUK){
   fsusplit <- rbind(fsuUKM)
   FSU_delim_aggr <- FSU_delim_aggr[! CAPRINUTS2 %in% splitregions]
   FSU_delim_aggr <- rbind(FSU_delim_aggr, fsusplit)
-  setsplit <- splitUKM[, .(set = paste0(CAPRINUTS2, " . ", split))]
+  setsplit <- splitUKM[, set1 := paste0(CAPRINUTS0, " . ", split)]
+  setsplit <- setsplit[, set2 := paste0(CAPRINUTS2, " . ", split)]
   
   fcon <- file("s_srnuts2_for_disagg.gms", open="w")
   writeLines("set s_splitregions(rall) 'CAPRI NUTS2 regions to split for disaggregation as they are requiring very long time' /", fcon)
@@ -57,10 +58,10 @@ if(dosplitUK){
   writeLines(paste(unique(splitUKM$split), collapse = ", "), fcon)
   writeLines("/;", fcon)
   writeLines("set m_splitregions(rall, *) 'Mapping CAPRINUTS to disagg regions' /", fcon)
-  write.table(setsplit[, .(set)], quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
+  write.table(setsplit[, .(set2)], quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
   writeLines("/;", fcon)
   writeLines("set m_splitcountry(rall, *) 'Mapping CAPRINUTS to disagg regions' /", fcon)
-  write.table(setsplit[, .(set)], quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
+  write.table(setsplit[, .(set1)], quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
   writeLines("/;", fcon)
   close.connection(fcon)
   
