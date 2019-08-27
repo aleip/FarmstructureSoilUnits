@@ -18,7 +18,54 @@ FSU_delim_aggr <- FSU_delim_all1[, .N, by = .(FSU, nogo, forest, INSP10_ID, FSUA
 setnames(FSU_delim_aggr, "N", "FSU_area")
 names(FSU_delim_aggr) <- gsub(".x$", "", names(FSU_delim_aggr))
 
-
+dosplitUK <- TRUE
+if(dosplitUK){
+  #UKM and FI1A are very slow ... split??
+  #UK units are too big and take too long - use 'real' nuts2
+  splitregions <- c("UKM00000", "FI1A0000")
+  splitregions <- c("UKM00000")
+  
+  fsuUKM <- FSU_delim_all1[CAPRINUTS2=="UKM00000", .N, by = .(FSU, nogo, forest, INSP10_ID, FSUADM2_ID_corrected, HSU2_CD_SO, 
+                                                             CNTR_CODE, CNTR_NAME, CAPRINUTS0, FSS10_N2ID)]
+  setnames(fsuUKM, "N", "FSU_area")
+  setnames(fsuUKM, "FSS10_N2ID", "CAPRINUTS2")
+  # Add zeros to adhere to CAPRI style
+  fsuUKM <- fsuUKM[, CAPRINUTS2 := paste0(CAPRINUTS2, "0000")]
+  splitUKM <- unique(FSU_delim_all1[CAPRINUTS2=="UKM00000", .(CAPRINUTS2, FSS10_N2ID)])
+  setnames(splitUKM, "FSS10_N2ID", "split")
+  # Add zeros to adhere to CAPRI style
+  splitUKM <- splitUKM[, split := paste0(split, "0000")]
+  
+  # fsuFI1A <- FSU_delim_all1[CAPRINUTS2=="FI1A0000", .N, by = .(FSU, nogo, forest, INSP10_ID, FSUADM2_ID_corrected, HSU2_CD_SO, 
+  #                                                            CNTR_CODE, CNTR_NAME, CAPRINUTS0, FSS10_N3ID)]
+  # fsuFIid <- FSU_delim_all1[CAPRINUTS2=="FI1A0000", .(FSU, FSUADM2_ID_corrected, FSUADM3_ID)]
+  # setnames(fsuFI1A, "N", "FSU_area")
+  # setnames(fsuFI1A, "FSS10_N3ID", "CAPRINUTS2")
+  # splitFI1 <- unique(FSU_delim_all1[CAPRINUTS2=="FI1A0000", .(CAPRINUTS2, FSS10_N3ID)])
+  # setnames(splitFI1, "FSS10_N3ID", "split")
+  
+  fsusplit <- rbind(fsuUKM)
+  FSU_delim_aggr <- FSU_delim_aggr[! CAPRINUTS2 %in% splitregions]
+  FSU_delim_aggr <- rbind(FSU_delim_aggr, fsusplit)
+  setsplit <- splitUKM[, .(set = paste0(CAPRINUTS2, " . ", split))]
+  
+  fcon <- file("s_srnuts2_for_disagg.gms", open="w")
+  writeLines("set s_splitregions(rall) 'CAPRI NUTS2 regions to split for disaggregation as they are requiring very long time' /", fcon)
+  writeLines(paste(unique(splitUKM$CAPRINUTS2), collapse = ", "), fcon)
+  writeLines("/;", fcon)
+  writeLines("set s_disaggregions(*) 'New regions for disaggregation. UKM: NUTS2, FI1A: NUTS3' /", fcon)
+  writeLines(paste(unique(splitUKM$split), collapse = ", "), fcon)
+  writeLines("/;", fcon)
+  writeLines("set m_splitregions(rall, *) 'Mapping CAPRINUTS to disagg regions' /", fcon)
+  write.table(setsplit[, .(set)], quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
+  writeLines("/;", fcon)
+  writeLines("set m_splitcountry(rall, *) 'Mapping CAPRINUTS to disagg regions' /", fcon)
+  write.table(setsplit[, .(set)], quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
+  writeLines("/;", fcon)
+  close.connection(fcon)
+  
+  
+}
 #FSU_delim_aggr <- FSU_delim_aggr[, !names(FSU_delim_aggr) %in% c("USCIE_RC", "OBJECTID", "AREA_HA", "FSUADM3_ID", )]
 #FSU_delim_aggr <- FSU_delim_aggr[!duplicated(FSU_delim_aggr), ]
 head(FSU_delim_aggr)
@@ -45,7 +92,7 @@ key(FSU_delim_aggr)
 setkeyv(FSU_delim_aggr, NULL)
 FSU_delim_aggr <- FSU_delim_aggr[order(FSUADM2_ID_corrected, CNTR_CODE, CAPRINUTS2, go), ] #order afterward by soil and 10kmgrid
 #FSU_delim_aggr <- FSU_delim_aggr[order(CNTR_CODE, CAPRINUTS2, nogo, forest), ]
-View(FSU_delim_aggr)
+#View(FSU_delim_aggr)
 
 
 FSU_delim_aggr$fsuID <- paste0("F", c(1:nrow(FSU_delim_aggr)))
@@ -79,18 +126,21 @@ writeLines(paste0("#Farm Structure SOil Units (FSU) and delineating date",
                   "\n#    - 12 characters INSP10_ID composed from string 10km and geographic position E and N (3 digits each)",
                   "\n#    -  4 characters HSU2_CD_SO",
                   "\n#    -  1 character  nogo: 0 = nogo unit 1 = go unit 2 = forest unit",
-                  "\n#HSU2_CD_SO	HSU2 0 to 4 digits code for the soil mapping unit This is the soil mapping unit code to use for the FSU delineation",
+                  "\n#HSU2_CD_SO	HSU2?0?to?4?digits?code?for?the?soil?mapping?unit This is the soil mapping unit code to use for the FSU delineation",
                   "\n#INSP10_ID	ID of the 10km INSPIRE grid: This is the 10km grid unit to use for the FSU delineation",
                   "\n#Admin regions: ",
                   "\n#FSUADM2_ID	NUTS2 code: This is the administrative unit to use for the FSU delineation",
-                  "\n#    --> see ies-ud01.jrc.it/D5_agrienv/Data/uscie/uscie_raster_FSU/readme_refras_FSU_land_soil_10km_admin_csv.txt"
+                  "\n#    --> see ies-ud01.jrc.it/D5_agrienv/Data/uscie/uscie_raster_FSU/readme_refras_FSU_land_soil_10km_admin_csv.txt",
+                  "\n#    NOTE that for two NUTS2 regions other 'disagg-regions' have been defined as they are very slow in disaggregating.",
+                  "\n#            UKM: using NUTS2 (FSS) = 'real NUTS2' regions"
+#                  "\n#            FI1A: using NUTS2 (FSS). ATTENTION: for FI1A "
                   ), wfile)
 #Don't save all admin names here as it will becomes too large
 close(wfile)
 #FSU_delim_aggr <- fread("\\\\ies\\d5\\agrienv\\Data\\FSU/FSU_delin.csv", header = T)
 
 fsuID2FSU <- FSU_delim_aggr[, .(fsuID, FSU)]
-uscie2FSU <- FSU_delim_all[, USCIE_RC, FSU]
+uscie2FSU <- FSU_delim_all1[, USCIE_RC, FSU]
 uscie2fsu <- merge(uscie2FSU, fsuID2FSU, by="FSU")
 uscie2fsu <- uscie2fsu[, fsuNo := as.numeric(gsub("F", "", fsuID))]
 setkey(uscie2fsu, "fsuNo")
