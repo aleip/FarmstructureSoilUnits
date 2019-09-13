@@ -25,14 +25,17 @@ if(dosplitUK){
   splitregions <- c("UKM00000", "FI1A0000")
   splitregions <- c("UKM00000")
   
+  checkIDs <- unique(FSU_delim_all1[, .(FSUADM2_ID_corrected, CAPRINUTS2, FSS10_N2ID, NUTS2_2016)])
+  
   fsuUKM <- FSU_delim_all1[CAPRINUTS2=="UKM00000", .N, by = .(FSU, nogo, forest, INSP10_ID, FSUADM2_ID_corrected, HSU2_CD_SO, 
-                                                             CNTR_CODE, CNTR_NAME, CAPRINUTS0, FSS10_N2ID)]
+#                                                             delineation done with NUTS2_2016 not FSS10_N2ID!!
+                                                             CNTR_CODE, CNTR_NAME, CAPRINUTS0, NUTS2_2016)]
   setnames(fsuUKM, "N", "FSU_area")
-  setnames(fsuUKM, "FSS10_N2ID", "CAPRINUTS2")
+  setnames(fsuUKM, "NUTS2_2016", "CAPRINUTS2")
   # Add zeros to adhere to CAPRI style
   fsuUKM <- fsuUKM[, CAPRINUTS2 := paste0(CAPRINUTS2, "0000")]
-  splitUKM <- unique(FSU_delim_all1[CAPRINUTS2=="UKM00000", .(CAPRINUTS0, CAPRINUTS2, FSS10_N2ID)])
-  setnames(splitUKM, "FSS10_N2ID", "split")
+  splitUKM <- unique(FSU_delim_all1[CAPRINUTS2=="UKM00000", .(CAPRINUTS0, CAPRINUTS2, NUTS2_2016)])
+  setnames(splitUKM, "NUTS2_2016", "split")
   # Add zeros to adhere to CAPRI style
   splitUKM <- splitUKM[, split := paste0(split, "0000")]
   
@@ -45,8 +48,8 @@ if(dosplitUK){
   # setnames(splitFI1, "FSS10_N3ID", "split")
   
   fsusplit <- rbind(fsuUKM)
-  FSU_delim_aggr <- FSU_delim_aggr[! CAPRINUTS2 %in% splitregions]
-  FSU_delim_aggr <- rbind(FSU_delim_aggr, fsusplit)
+  fsuNotSplit <- FSU_delim_aggr[! CAPRINUTS2 %in% splitregions]
+  FSU_delim_aggr <- rbind(fsuNotSplit, fsusplit)
   setsplit <- splitUKM[, set1 := paste0(CAPRINUTS0, " . ", split)]
   setsplit <- setsplit[, set2 := paste0(CAPRINUTS2, " . ", split)]
   
@@ -133,7 +136,7 @@ writeLines(paste0("#Farm Structure SOil Units (FSU) and delineating date",
                   "\n#FSUADM2_ID	NUTS2 code: This is the administrative unit to use for the FSU delineation",
                   "\n#    --> see ies-ud01.jrc.it/D5_agrienv/Data/uscie/uscie_raster_FSU/readme_refras_FSU_land_soil_10km_admin_csv.txt",
                   "\n#    NOTE that for two NUTS2 regions other 'disagg-regions' have been defined as they are very slow in disaggregating.",
-                  "\n#            UKM: using NUTS2 (FSS) = 'real NUTS2' regions"
+                  "\n#            UKM: using NUTS2 (NUTS2_2016) = 'real NUTS2' regions"
 #                  "\n#            FI1A: using NUTS2 (FSS). ATTENTION: for FI1A "
                   ), wfile)
 #Don't save all admin names here as it will becomes too large
@@ -143,6 +146,16 @@ close(wfile)
 fsuID2FSU <- FSU_delim_aggr[, .(fsuID, FSU)]
 uscie2FSU <- FSU_delim_all1[, USCIE_RC, FSU]
 uscie2fsu <- merge(uscie2FSU, fsuID2FSU, by="FSU")
+
+#check duplicated uscies
+duplicateduscies <- uscie2fsu$USCIE_RC[duplicated(uscie2fsu$USCIE_RC)]
+uscie2fsu[USCIE_RC %in% duplicateduscies[1]]
+duplicatedfsu <- uscie2fsu[USCIE_RC %in% duplicateduscies[1], fsuID]
+FSU_delim_all1[USCIE_RC %in% duplicateduscies[1]]
+FSU_delim_aggr[fsuID %in% duplicatedfsu]
+fsuID2FSU[fsuID %in% duplicatedfsu]
+
+
 uscie2fsu <- uscie2fsu[, fsuNo := as.numeric(gsub("F", "", fsuID))]
 setkey(uscie2fsu, "fsuNo")
 uscie2fsu <- uscie2fsu[, .(fsuID, USCIE_RC)]
@@ -157,6 +170,25 @@ writeLines(paste0("#Matching table between uscie and Farm Structure SOil Units (
 ), wfile)
 #Don't save all admin names here as it will becomes too large
 close(wfile)
+
+### Update uscie4fsu_delimdata to include the fsuID
+load("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/uscie4fsu_delimdata.rdata")
+load("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/uscie2fsu.rdata")
+uscie4fsu_delimdata
+uscie4fsu_delimdata <- merge(uscie4fsu_delimdata, uscie2fsu, by="USCIE_RC", all=TRUE)
+
+sortnames1 <- c("fsuID", "FSU", "USCIE_RC")
+sortnames2 <- c("OBJECTID", "HSU2_CD_SO", "INSP10_ID", "FSUADM2_ID", "nogo", "forest")
+sortnames3 <- c("CNTR_NAME", "CNTR_CODE", "EU28_CNTR", "CTRYSTATUS")
+sortnames4 <- c("CAPRINUTS0", "CAPRINUTS2", "FSS10_N2ID", "FSS10_N3ID", "FSSmodif", "NUTS3_2010", "NUTS3_2016", "NUTS2_2010", "NUTS2_2016")
+
+allnames <- c(sortnames1, sortnames2, sortnames3, sortnames4)
+allnames <- c(allnames, names(uscie4fsu_delimdata)[!names(uscie4fsu_delimdata) %in% allnames])
+uscie4fsu_delimdata <- uscie4fsu_delimdata[, .SD, .SDcols = allnames]
+uscie4fsu_delimdata <- uscie4fsu_delimdata[, n := as.numeric(gsub("F", "", fsuID))]
+uscie4fsu_delimdata <- uscie4fsu_delimdata[order(n, USCIE_RC)]
+save(uscie4fsu_delimdata, file="//ies-ud01.jrc.it/D5_agrienv/Data/FSU/uscie4fsu_delimdata.rdata")
+writeuscie4fsu(uscie4fsu_delimdata)
 
 ## Dissolve new FSU polygons and giving spatial information ####
 addspatinfo <- FALSE

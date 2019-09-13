@@ -44,7 +44,7 @@ if(doit == "y"){
   nuts_codes1_1 <- nuts_codes1[, c("FSUADM3_ID", "FSUADM2_ID_corrected")]
   length(unique(nuts_codes1_1$FSUADM3_ID))
   length(unique(nuts_codes1_1$FSUADM2_ID_corrected))
-
+  
   data4delin1 <- merge(data4delin, nuts_codes1_1, by = "FSUADM3_ID", all.x = TRUE)
   View(data4delin1)
   
@@ -118,7 +118,7 @@ FSU_delim_nogo$FSU <- paste0(FSU_delim_nogo$FSUADM2_ID_corrected,
                              FSU_delim_nogo$INSP10_ID,
                              "0000", #Add four characters for soil (but ignore if HSU2_CD_SO is different as we don't want to split the nogo units by soil type),
                              "0"     #Add one character for 'nogo'
-                             )
+)
 # Delete soil mapping unit from the nogo units so that they won't be split into several pieces...
 FSU_delim_nogo$HSU2_CD_SO <- ""
 
@@ -151,31 +151,39 @@ FSU_delim_all <- FSU_delim_all[!is.na(FSU_delim_all$FSU), ]
 #uscie4fsu_delimdata <- as.data.table(FSU_delim_all)
 uscie4fsu_delimdata <- as.data.table(FSU_delim_all)
 save(uscie4fsu_delimdata, file="\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/uscie4fsu_delimdata.rdata")
-wfile <- file("\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/uscie4fsu_delimdata_readme.txt", open="w")
-writeLines(paste0("#Data used for the delineation of the Farm Structure Units (FSU)",
-                  "\n#Date generated: 19/08/2019 - Adrian Leip",
-                  "\n#Script: FSU_delineation_uscie.r - Repository https://github.com/aleip/FarmstructureSoilUnits",
-                  "\n#\n#Content of the data set:",
-                  "\n#FSUADM3_ID OBJECTID USCIE_RC HSU2_CD_SO    INSP10_ID     CNTR_NAME FSUADM2_ID FSUADM2_ID_corrected",
-                  "\n#    --> see ies-ud01.jrc.it/D5_agrienv/Data/uscie/uscie_raster_FSU/readme_refras_FSU_land_soil_10km_admin_csv.txt",
-                  "\n#USCIE_RC	USCIE coding - Canary Islands Azores and Madeira added.",
-                  "\n#HSU2_CD_SO	HSU2 0 to 4 digits code for the soil mapping unit This is the soil mapping unit code to use for the FSU delineation",
-                  "\n#INSP10_ID	ID of the 10km INSPIRE grid: This is the 10km grid unit to use for the FSU delineation",
-                  "\n#CNTR_NAME	Country name",
-                  "\n#FSUADM3_ID	NUTS3 code",
-                  "\n#FSUADM2_ID	NUTS2 code: This is the administrative unit to use for the FSU delineation",
-                  "\n#nogo:   Code determining >90% 'nogo' Corine Classes or >90% Corine forests", 
-                  "\n#        Corine used: \\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\Corine_Land_Cover\\clc2018_v20_incl_turkey\\7ac95361f9ac3cecdf37785bc183ff02dd765a16\\clc2018_clc2018_v2018_20_raster100m/", 
-                  "\n#                     CLC2018_CLC2018_V2018_20.tif.ovr",
-                  "\n#        Script used: https://github.com/aleip/FarmstructureSoilUnits/blob/master/corine2uscie.r ",
-                  "\n#        List of nogo classes: 111: Continuous_urban_fabric - 112: Discontinuous_urban_fabric - 121: Industrial_or_commercial_units - 122: Road_and_rail_networks_and_associated_land - 123: Port_areas - 124: Airports - 131: Mineral_extraction_sites - 132: Dump_sites - 133: Construction_sites - 141: Green_urban_areas - 142: Sport_and_leisure_facilities - 331: Beaches_dunes_sands - 332: Bare_rocks - 335: Glaciers_and_perpetual_snow - 422: Salines - 423: Intertidal_flats - 511: Water_courses - 512: Water_bodies - 521: Coastal_lagoons - 522: Estuaries - 523: Sea_and_ocean",
-                  "\n#forest: Code determining >90% Corine forests",
-                  "\n#FSU string determining unique FSU",
-                  "\n#    -  3 characters FSUADM2_ID numeric values between 100 and 435 ",
-                  "\n#    - 12 characters INSP10_ID composed from string 10km and geographic position E and N (3 digits each)",
-                  "\n#    -  4 characters HSU2_CD_SO",
-                  "\n#    -  1 character  nogo: 0 = nogo unit 1 = go unit 2 = forest unit"), wfile)
-#Don't save all admin names here as it will becomes too large
-close(wfile)
-write.csv(FSU_delim, row.names = FALSE, wfile)
+writeuscie4fsu <- function(x){
+  wfile <- file("\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/uscie4fsu_delimdata_readme.txt", open="w")
+  hlines <- paste0("#Data used for the delineation of the Farm Structure Units (FSU)",
+                    "\n#Date generated: 19/08/2019 - Adrian Leip",
+                    "\n#Script: FSU_delineation_uscie.r - Repository https://github.com/aleip/FarmstructureSoilUnits",
+                    "\n#\n#Content of the data set:",
+                    "\n#FSUADM3_ID OBJECTID USCIE_RC HSU2_CD_SO    INSP10_ID     CNTR_NAME FSUADM2_ID FSUADM2_ID_corrected",
+                    "\n#    --> see ies-ud01.jrc.it/D5_agrienv/Data/uscie/uscie_raster_FSU/readme_refras_FSU_land_soil_10km_admin_csv.txt",
+                    "\n#USCIE_RC	USCIE coding - Canary Islands Azores and Madeira added.",
+                    "\n#HSU2_CD_SO	HSU2?0?to?4?digits?code?for?the?soil?mapping?unit This is the soil mapping unit code to use for the FSU delineation",
+                    "\n#INSP10_ID	ID of the 10km INSPIRE grid: This is the 10km grid unit to use for the FSU delineation",
+                    "\n#NUTS3_2016	Nuts3 code",
+                    "\n#FSUADM2_ID_corrected	NUTS2 code: This is the administrative unit to use for the FSU delineation",
+                    "\n#nogo:   Code determining >90% 'nogo' Corine Classes or >90% Corine forests", 
+                    "\n#        Corine used: \\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\Corine_Land_Cover\\clc2018_v20_incl_turkey\\7ac95361f9ac3cecdf37785bc183ff02dd765a16\\clc2018_clc2018_v2018_20_raster100m/", 
+                    "\n#                     CLC2018_CLC2018_V2018_20.tif.ovr",
+                    "\n#        Script used: https://github.com/aleip/FarmstructureSoilUnits/blob/master/corine2uscie.r ",
+                    "\n#        List of nogo classes: 111: Continuous_urban_fabric - 112: Discontinuous_urban_fabric - 121: Industrial_or_commercial_units - 122: Road_and_rail_networks_and_associated_land - 123: Port_areas - 124: Airports - 131: Mineral_extraction_sites - 132: Dump_sites - 133: Construction_sites - 141: Green_urban_areas - 142: Sport_and_leisure_facilities - 331: Beaches_dunes_sands - 332: Bare_rocks - 335: Glaciers_and_perpetual_snow - 422: Salines - 423: Intertidal_flats - 511: Water_courses - 512: Water_bodies - 521: Coastal_lagoons - 522: Estuaries - 523: Sea_and_ocean",
+                    "\n#forest: Code determining >90% Corine forests",
+                    "\n#FSU string determining unique FSU",
+                    "\n#    -  3 characters FSUADM2_ID numeric values between 100 and 435 ",
+                    "\n#    - 12 characters INSP10_ID composed from string 10km and geographic position E and N (3 digits each)",
+                    "\n#    -  4 characters HSU2_CD_SO",
+                    "\n#    -  1 character  nogo: 0 = nogo unit 1 = go unit 2 = forest unit")
+  #Don't save all admin names here as it will becomes too large
+  writeLines(hlines, wfile)
+  close(wfile)
+  wfile <- file("\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU/uscie4fsu_delimdata.csv", open="w")
+  writeLines(hlines, wfile)
+  x <- x[, .(fsuID, USCIE_RC, FSUADM2_ID_corrected, NUTS3_2016, HSU2_CD_SO, INSP10_ID, nogo, forest, FSU)]
+  write.csv(x, row.names = FALSE, wfile)
+  close(wfile)
+  
+}
+writeuscie4fsu(uscie4fsu_delimdata)
 

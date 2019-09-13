@@ -117,7 +117,7 @@ p_fsu_srnuts2.gdx <- function(){
   # s_fsu_srnuts2.gdx ####
   
   FSU_delim_aggr1 <- fsu_delimdata
-  #setnames(FSU_delim_aggr1, "fsuID", "fsu_all")
+  setnames(FSU_delim_aggr1, "fsuID", "fsu_all")
   #row.names(FSU_delim_aggr1) <- FSU_delim_aggr$runID
   FSU_delim_aggr1 <- FSU_delim_aggr1[, .(fsu_all, CAPRINUTS2)]
   cols <- names(FSU_delim_aggr1)[1:2]
@@ -387,10 +387,6 @@ m_hsugrid_fsugrid <- function(){
   # Calculate shares of UKM regions that need to be used for splitting CAPRI-NUTS UKM
   # to fasten processing, use NUTS2 (FSS) for UK, and not the CAPRINUTS2 (which in reality are NUTS1)
   fssUKM <- fss10kmfsu[grepl("UKM, ")]
-  
-  
-  
-  
   
 }
 
