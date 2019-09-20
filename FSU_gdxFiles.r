@@ -4,14 +4,30 @@ library(gdxrrw)
 library(magrittr)
 #library(dplyr)
 #
-source("../FarmstructureSoilUnits/raster_functions.r")
-source("capriextract_functions_4mapping.r")
+#source("../FarmstructureSoilUnits/raster_functions.r")
+#source("capriextract_functions_4mapping.r")
 
 if(Sys.info()[4] == "D01RI1701864"){ #checks machine name
   gamspath<-"C:\\apps\\GAMS\\win64\\24.9"
   #workpath<-"C:/adrian/tools/rprojects/gisdata4caprihsu/"
   #capridat<-"C:/adrian/models/capri/trunk20160810/dat/capdis/hsu2/"
 }
+
+recreateaftersplitofnuts <- FALSE
+if(recreateaftersplitofnuts){
+  
+  # Remember to update also ./gams/capdis/add_rall.gms to include new rall
+  # Currently the file s_srnuts2_for_disagg.gms needs to be corrected manually as the '1' in the NUTS3 regions (CAPRINUTS2) is not deleted and substituted with a '0' at the end.
+  
+  source('~/tools/rprojects/FarmstructureSoilUnits/FSU_gdxFiles.r')
+  # Re-do the link between FSU and NUTS2 for disaggregation 
+  p_fsu_srnuts2.gdx()
+  # Re-do the link between FSU and gridcells
+  p_fsu_grid10n23()
+  # Re-do the re-mapping of the FSS2010 gap-filled data
+  m_hsugrid_fsugrid()
+}
+
 
 #igdx(gamspath)
 
@@ -267,20 +283,66 @@ m_hsugrid_fsugrid <- function(){
   #  B. Prepare FSU grid cells
   #
   load(file="//ies-ud01.jrc.it/D5_agrienv/Data/FSU/p_fsu_grid.rdata")
+  load("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/fsu_delimdata.rdata")
   matchnuts <- fread("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/admin_units/CAPRI_NUTS_RG_01M_2016_3035_LEVL_3_plus_BA_XK_final_wfoa.csv")
   matchnuts2 <- unique(matchnuts[, .(CAPRINUTS2, FSS10_N2ID)])
   matchnuts2 <- matchnuts2[, nuts4:=substr(CAPRINUTS2, 1, 4)]
-  matchnuts2 <- matchnuts2[!FSS10_N2ID %in% unique(matchnuts2[duplicated(matchnuts2$FSS10_N2ID)]$FSS10_N2ID)]
-  # There are some duplicate FSSNUTS (e.g. DE1) - remove them so that a merge is possible
+  
+  # There are some duplicate FSSNUTS (e.g. DE1) - remove them temporarily so that a merge is possible
+  # 
+  #   gridold = grids as used in FSS12010 gap-filled data
+  #   gridnew = grids as used in FSU database
+  #   
+  duplnuts2 <- unique(matchnuts2[duplicated(matchnuts2$FSS10_N2ID)]$FSS10_N2ID)
+  matchnuts2u <- matchnuts2[!FSS10_N2ID %in% duplnuts2]
+  
   ufssgrid <- unique(fssgrid[, .(grid, nuts, scale, E, N)])
-  matchnuts3 <- merge(ufssgrid, matchnuts2, by.x="nuts", by.y="FSS10_N2ID")
+  matchnuts3 <- merge(ufssgrid, matchnuts2u, by.x="nuts", by.y="FSS10_N2ID")
   matchnuts3 <- matchnuts3[, gridnew := gsub(nuts, nuts4, grid), by=c("nuts", "nuts4", "grid")]
   fssgridmatch <- matchnuts3[, .(gridold=grid, gridnew, CAPRINUTS2, nuts4, scale, E, N)]
   
   fsugrid <- unique(p_fsu_grid[, .(grid10n2)])
   fsugrid <- fsugrid[, nutsfsu := tstrsplit(grid10n2, "_")[[1]]]
   
+  # Table where one CPARI NUTS has multiple FSS nuts
+  ufssgrid[nuts %in% duplnuts2]
+  fsugrid[grepl(paste(duplnuts2[1:7], collapse="|"), nutsfsu)]
+  # Problem: for DE - duplicate NUTS the link has been made with NUTS2, but FSS data link only to NUTS1 grids.
+  #          to know which NUTS2 is linked to a gridcell need to go over the FSU, thus substituting 
+  pfsudupl <- p_fsu_grid[grepl(paste(duplnuts2[1:7], collapse="|"), grid10n2)]
+  pfsudupl <- pfsudupl[, c("nuts", "scale", "E") := .(tstrsplit(grid10n2, "_")[[1]], 
+                                                    tstrsplit(tstrsplit(grid10n2, "_")[[2]], "E")[[1]], 
+                                                    tstrsplit(tstrsplit(grid10n2, "_")[[2]], "E")[[2]])]
+  pfsudupl <- pfsudupl[, c("E", "N") := .(tstrsplit(E, "N")[[1]], tstrsplit(E, "N")[[2]])]
+  
+  # Correct for FI
+  # unique(ufssgrid[grepl("FI", grid)]$nuts)
+  # [1] "FI19" "FI1B" "FI1C" "FI1D" "FI20"
+  fifssgrid <- ufssgrid[nuts %in% "FI1D"]
+  fifsugrid <- p_fsu_grid[grepl("FID", grid10n2), .(fsu_all, grid10n2)]
+  fifsugrid <- fifsugrid[, grid := paste0("FI1D", substr(grid10n2, 5, 20))]
+  fsugrid[grepl("FID", grid10n2)]
+  fi1dnuts2d <- merge(fifssgrid, fifsugrid, by='grid', all=TRUE)
+  fi1dnuts2d
+  fi1dnuts2d <- merge(fifssgrid, fifsugrid, by='grid')
+  
+  fi1dnuts3d <- merge(fi1dnuts2d, fsu_delimdata[, .(fsu_all = fsuID, INSP10_ID, FSUADM2_ID, CAPRINUTS2)], by="fsu_all")
+  fi1dnuts3d <- fi1dnuts3d[, .(gridold = grid, 
+                               gridnew = grid10n2,
+                               #gridnew = paste0(substr(CAPRINUTS2, 1, 5), "_", INSP10_ID), 
+                               CAPRINUTS2, 
+                               nuts4 = substr(CAPRINUTS2, 1, 5), scale, E, N)]
+  fi1dboth <- merge(fi1dnuts3d, fsugrid, by.x="gridnew", by.y="grid10n2")
+  
+  denuts3d <- unique(pfsudupl[grepl("DE", nuts), .(gridold = paste0(substr(nuts, 1, 3), substr(grid10n2, 5, 20)), 
+                                                   gridnew = grid10n2, CAPRINUTS2 = paste0(nuts, "0000"), 
+                                                   nuts4 = nuts, scale, E, N)])
+  deboth <- merge(denuts3d, fsugrid, by.x="gridnew", by.y="grid10n2")
+  
+  # Rest (non-duplicate NUTS)
   bothgrids <- merge(fssgridmatch, fsugrid, by.x="gridnew", by.y="grid10n2", all=TRUE)
+  # Combine all NUTS   
+  bothgrids <- rbind(bothgrids, deboth, fi1dboth)
   
   bothgrids <- bothgrids[, missInHSU := is.na(nuts4)]
   bothgrids <- bothgrids[, missInFSU := is.na(nutsfsu)]
@@ -386,7 +448,7 @@ m_hsugrid_fsugrid <- function(){
   
   # Calculate shares of UKM regions that need to be used for splitting CAPRI-NUTS UKM
   # to fasten processing, use NUTS2 (FSS) for UK, and not the CAPRINUTS2 (which in reality are NUTS1)
-  fssUKM <- fss10kmfsu[grepl("UKM, ")]
+  #fssUKM <- fss10kmfsu[grepl("UKM, ")]
   
 }
 
