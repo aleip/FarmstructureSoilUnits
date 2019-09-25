@@ -33,6 +33,7 @@ FSU_delim_all1 <- uscie4fsu_delimdata
 ## FSU_delim_aggr$nogo_flag <- FSU_delim_aggr$nogo + (FSU_delim_aggr$nogo * FSU_delim_aggr$forest)
 FSU_delim_all1 <- FSU_delim_all1[, go := nogo + forest]
 unique(FSU_delim_all1[, .(nogo, forest, go)])
+FSU_delim_all1[, .N, by=list(nogo, forest, go)]
 FSU_delim_all1 <- FSU_delim_all1[, -c("nogo", "forest"), with=FALSE]
 names(FSU_delim_all1)
 #uscie2FSU <- FSU_delim_all1[, USCIE_RC, FSU]
@@ -130,6 +131,7 @@ if(dosplitUK){
   fsuFI1A3 <- fsuFI1A3[, fsucols, with=FALSE]
   # Only 4 digits in CAPRI, therefore remove the '1' for FI-NUTS3 regions
   fsuFI1A3 <- fsuFI1A3[, CAPRINUTS2 := gsub("1", "", CAPRINUTS2)]
+  fsuFI1A3 <- fsuFI1A3[CAPRINUTS2=="FID", CAPRINUTS2 := "FID1"]
   
 # Rename to CAPRI style
   setnames(fsuUKM, "N", "FSU_area")
@@ -149,6 +151,8 @@ if(dosplitUK){
   splitFI1A <- unique(FSU_delim_all1[CAPRINUTS2 %in% fi2split, .(CAPRINUTS0, CAPRINUTS2, NUTS3_2016)])
   setnames(splitUKM, "NUTS2_2016", "split")
   setnames(splitFI1A, "NUTS3_2016", "split")
+  splitFI1A <- splitFI1A[, split := gsub("FI1", "FI", split)]
+  splitFI1A <- splitFI1A[, split := paste0(split, "0")]
   # Add zeros to adhere to CAPRI style
   splitUKM <- splitUKM[, split := paste0(split, "0000")]
   splitFI1A <- splitFI1A[, split := paste0(split, "000")]
@@ -168,7 +172,7 @@ if(dosplitUK){
   write.table(setsplit[, .(set2)], quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
   writeLines("/;", fcon)
   writeLines("set m_splitcountry(rall, *) 'Mapping CAPRINUTS to disagg regions' /", fcon)
-  write.table(setsplit[, .(set1)], quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
+  write.table(unique(setsplit[, .(set1)]), quote=FALSE, col.names=FALSE, row.names=FALSE, fcon)
   writeLines("/;", fcon)
   close.connection(fcon)
   
@@ -321,23 +325,23 @@ if(addspatinfo){
   row.names(fsu) <- as.character(1:length(fsu))
   
   
-  A partir d'aqui hi ha un problema amb els poligons que tenen NA (1). Fent el que segueix, l'eliminem a sac i no se com es col>loquen els seguents
-  Revisar-ho!!
-    
-    
-    fsu_unq <- unique(uscie_fsu$FSU)
-  fsu_unq <- as.data.frame(fsu_unq)
-  colnames(fsu_unq) <- "FSU"
-  fsu_unq <- as.data.frame(fsu_unq[which(!is.na(fsu_unq$FSU)), ])
-  
-  fsu1 <- SpatialPolygonsDataFrame(fsu, fsu_unq)
-  
-  writeOGR(obj = fsu1, dsn = "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU", layer = "FSU", driver = "ESRI Shapefile", overwrite_layer = TRUE)
-  
-  length(unique(uscie_fsu$uscie))
-  length(unique(uscie_fsu$FSU))
-  
-  Revisar fins aqui
+  # A partir d'aqui hi ha un problema amb els poligons que tenen NA (1). Fent el que segueix, l'eliminem a sac i no se com es col>loquen els seguents
+  # Revisar-ho!!
+  #   
+  #   
+  #   fsu_unq <- unique(uscie_fsu$FSU)
+  # fsu_unq <- as.data.frame(fsu_unq)
+  # colnames(fsu_unq) <- "FSU"
+  # fsu_unq <- as.data.frame(fsu_unq[which(!is.na(fsu_unq$FSU)), ])
+  # 
+  # fsu1 <- SpatialPolygonsDataFrame(fsu, fsu_unq)
+  # 
+  # writeOGR(obj = fsu1, dsn = "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU", layer = "FSU", driver = "ESRI Shapefile", overwrite_layer = TRUE)
+  # 
+  # length(unique(uscie_fsu$uscie))
+  # length(unique(uscie_fsu$FSU))
+  # 
+  # Revisar fins aqui
 }
 
 

@@ -68,7 +68,7 @@ if(doit == "y"){
   
 }
 
-
+source("raster_functions.r")
 # Forest
 dir2save <- "x:\\adrian/data/fsu"
 dir2save <- "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\FSU\\Forest_NoGo"
@@ -76,6 +76,12 @@ forest <- raster(paste0(dir2save, "/forest_only_1km.tif"))
 uscie_for <- convertRaster2datatable(forest, uscie)
 
 # NoGo
+#      1 = GO
+#      0 = NOGO
+# > uscie_nogo[, .N, by="nogo_1km"]
+#    nogo_1km       N
+# 1:        1 5662592
+# 2:        0  172338
 nogo <- raster(paste0(dir2save, "/nogo_1km.tif"))
 uscie_nogo <- convertRaster2datatable(nogo, uscie)
 

@@ -26,6 +26,7 @@ if(recreateaftersplitofnuts){
   p_fsu_grid10n23()
   # Re-do the re-mapping of the FSS2010 gap-filled data
   m_hsugrid_fsugrid()
+  
 }
 
 
@@ -533,6 +534,7 @@ p_corine <- function(){
   load("//ies-ud01.jrc.it/D5_agrienv/Data/FSU/uscie2fsu.rdata")
   
   corinedir <- "//ies-ud01.jrc.it/D5_agrienv/Data/FSU/corine/"
+  corine_dir <- "\\\\ies-ud01.jrc.it\\D5_agrienv\\Data\\Corine_Land_Cover\\clc2018_v20_incl_turkey\\7ac95361f9ac3cecdf37785bc183ff02dd765a16\\clc2018_clc2018_v2018_20_raster100m/"
   corine_cats <- read.csv(paste0(corine_dir, "/CLC2018_CLC2018_V2018_20.txt"), header = FALSE)
   rcl_mat <- corine_cats[, 1:2]
   rcl_mat[, 2] <- 0
@@ -583,6 +585,8 @@ p_corine <- function(){
     }
   }
   p_corineShares <- dcast.data.table(y, uscie ~ CLC, value.var="value")
+  save(p_corineShares, file="//ies-ud01.jrc.it/D5_agrienv/Data/FSU/p_uscieCorineShares.rdata")
+  
   ccols <- setdiff(names(p_corineShares), "uscie")
   p_fsuCorineShar <- merge(p_corineShares, uscie2fsu, by.y="USCIE_RC", by.x="uscie", all=TRUE)
   p_fsuCorineArea <- p_fsuCorineShar[, lapply(.SD, sum), by=fsuID, .SDcols = ccols]
